@@ -24,7 +24,6 @@ from typing import (
     Iterator,
     List,
     Literal,
-    Mapping,
     Optional,
     Sequence,
     Tuple,
@@ -2148,8 +2147,8 @@ class _TextEmbeddingModel(_LanguageModel):
         )
 
         return [
-            TextEmbedding.from_prediction(e).with_response(prediction_response)
-            for e in prediction_response.predictions
+            TextEmbedding.from_prediction(prediction_response, i_prediction)
+            for i_prediction, _ in enumerate(prediction_response.predictions)
         ]
 
     async def get_embeddings_async(
@@ -2181,8 +2180,8 @@ class _TextEmbeddingModel(_LanguageModel):
         )
 
         return [
-            TextEmbedding.from_prediction(e).with_response(prediction_response)
-            for e in prediction_response.predictions
+            TextEmbedding.from_prediction(prediction_response, i_prediction)
+            for i_prediction, _ in enumerate(prediction_response.predictions)
         ]
 
 
@@ -2287,17 +2286,12 @@ class TextEmbedding:
     statistics: Optional[TextEmbeddingStatistics] = None
     _prediction_response: Optional[aiplatform.models.Prediction] = None
 
-    def with_prediction_response(
-        self, response: aiplatform.models.Prediction
-    ) -> "TextEmbedding":
-        self._prediction_response = response
-        return self
-
     @classmethod
     def from_prediction(
-        cls, prediction: Union[Mapping[str, Any], List[float]]
+        cls, prediction_response: aiplatform.models.Prediction, i_prediction: int
     ) -> "TextEmbedding":
         """Creates a `TextEmbedding` object from a prediction."""
+        prediction = prediction_response.predictions[i_prediction]
         if isinstance(prediction, collections.abc.Mapping):
             embeddings = prediction["embeddings"]
             embedding_stats = embeddings["statistics"]
@@ -2307,9 +2301,10 @@ class TextEmbedding:
                     token_count=embedding_stats["token_count"],
                     truncated=embedding_stats["truncated"],
                 ),
+                _prediction_response=prediction_response,
             )
         else:
-            return cls(values=prediction)
+            return cls(values=prediction, _prediction_response=prediction_response)
 
 
 @dataclasses.dataclass
